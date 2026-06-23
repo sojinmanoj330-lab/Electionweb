@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>St. Stephens School Voting</title>
+  <style>
+    :root{
+      --primary:#0b63d6;
+      --accent:#ffd32a;
+      --muted:#f4f7fb;
+      --card:#ffffff;
+      --radius:12px;
+      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,var(--muted),#e8f2ff);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .app{width:100%;max-width:980px}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    .logo{width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,var(--primary),#4a9bff);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:20px;box-shadow:0 6px 18px rgba(11,99,214,0.18)}
+    h1{margin:0;font-size:20px}
+    .card{background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:0 8px 24px rgba(14,55,100,0.08)}
+    .grid{display:grid;grid-template-columns:1fr;gap:18px}
+    form{display:flex;flex-direction:column;gap:12px}
+    label{font-size:13px;color:#12345a}
+    input[type=text]{padding:10px;border-radius:8px;border:1px solid #d9e9ff;background:transparent}
+    .btn{display:inline-block;padding:10px 14px;border-radius:10px;border:0;background:var(--primary);color:white;font-weight:600;cursor:pointer}
+    .btn.secondary{background:transparent;border:2px solid var(--primary);color:var(--primary)}
+    .muted{color:#4e6b88;font-size:13px}
+    .positions{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+    .position{border-radius:10px;padding:12px;border:1px solid #e6f0ff;background:linear-gradient(180deg,#ffffff, #fbfdff)}
+    .position h3{margin:0 0 10px 0;font-size:15px}
+    .candidate{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer}
+    .candidate input{margin-right:8px}
+    .results{margin-top:16px}
+    .result-row{display:flex;justify-content:space-between;padding:8px;border-radius:8px;background:#fbfbfb;border:1px solid #f0f5fb;margin-bottom:8px}
+    @media (max-width:840px){.positions{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="logo">SS</div>
+      <div>
+        <h1>St. Stephens — Student Election 2026-27</h1>
+        <div class="muted"> Modern systems use private voting to ensure fair, unbiased choices.</div>
+      </div>
+    </header>
+
+    <div class="card" id="mainCard">
+      <section id="loginSection">
+        <h2 style="margin-top:0">Login to Vote</h2>
+        <form id="loginForm">
+          <div>
+            <label for="studentName">Student Name</label>
+            <input id="studentName" name="studentName" type="text" placeholder="e.g. Riya" required />
+          </div>
+          <div>
+            <label for="studentClass">Class</label>
+            <input id="studentClass" name="studentClass" type="text" placeholder="e.g. 10A" required />
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
+            <button class="btn" type="submit">Login & Vote</button>
+            <button id="viewResultsBtn" type="button" class="btn secondary">View Results</button>
+          </div>
+          <div id="loginMsg" class="muted" style="margin-top:8px"></div>
+        </form>
+      </section>
+
+      <section id="votingSection" style="display:none">
+        <h2 style="margin-top:0">Cast Your Votes</h2>
+        <div class="muted">Logged in as <strong id="whoAmI"></strong></div>
+        <form id="voteForm">
+          <div class="positions" id="positionsContainer"></div>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button type="submit" class="btn">Submit Vote</button>
+            <button id="logoutBtn" type="button" class="btn secondary">Logout</button>
+          </div>
+          <div id="voteMsg" class="muted" style="margin-top:8px"></div>
+        </form>
+      </section>
+
+      <section id="votedNotice" style="display:none">
+        <h2 style="margin-top:0">Vote Recorded</h2>
+        <div class="muted">Thank you! Your vote has been recorded successfully. Next student can now log in.</div>
+        <div style="margin-top:10px">
+          <button id="nextVoterBtn" class="btn">Next Voter</button>
+          <button id="viewResultsBtn2" class="btn secondary">View Results</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="resultsOverlay" style="display:none;margin-top:12px">
+      <div class="card results">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h3 style="margin:0">Election Results</h3>
+          <div><button id="closeResults" class="btn secondary">Close</button></div>
+        </div>
+        <div id="resultsContent" style="margin-top:12px"></div>
+        <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+          <div class="muted">Admin password: <strong>Ststephenselection2026</strong></div>
+          <div><button id="resetVotes" class="btn" style="background:var(--accent);color:#07223a">Reset All Votes</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ADMIN_PASSWORD = 'Ststephenselection2026';
+
+const POSITIONS = [
+  {id:'headboy', title:'Head Boy', candidates:['Arjun','Rohan','Karan']},
+  {id:'asstheadboy', title:'Assistant Head Boy', candidates:['Jisu Johnson','Vikram','Aman']},
+  {id:'headgirl', title:'Head Girl', candidates:['Priya','Ananya','Meera']},
+  {id:'asstheadgirl', title:'Assistant Head Girl', candidates:['Arya Anna Samuel','Isabella David','Sona Binu']}
+];
+
+const LS_VOTES = 'ss_votes_2025';
+const LS_VOTERS = 'ss_voters_2025';
+
+/* =========================
+   BEEP SOUND FUNCTION
+========================= */
+function playBeep() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+  if (!AudioContextClass) return;
+
+  const audioCtx = new AudioContextClass();
+
+  const oscillator = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+
+  oscillator.type = 'sine';
+  oscillator.frequency.value = 900;
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(
+    0.001,
+    audioCtx.currentTime + 0.12
+  );
+
+  oscillator.start();
+  oscillator.stop(audioCtx.currentTime + 0.12);
+}
+
+/* =========================
+   STORAGE FUNCTIONS
+========================= */
+function loadVotes() {
+  const raw = localStorage.getItem(LS_VOTES);
+
+  if (!raw) {
+    const init = {};
+
+    POSITIONS.forEach(p => {
+      init[p.id] = {};
+      p.candidates.forEach(c => {
+        init[p.id][c] = 0;
+      });
+    });
+
+    localStorage.setItem(LS_VOTES, JSON.stringify(init));
+    return init;
+  }
+
+  return JSON.parse(raw);
+}
+
+function saveVotes(obj) {
+  localStorage.setItem(LS_VOTES, JSON.stringify(obj));
+}
+
+function loadVoters() {
+  return JSON.parse(localStorage.getItem(LS_VOTERS) || '[]');
+}
+
+function saveVoter(v) {
+  const arr = loadVoters();
+  arr.push(v);
+  localStorage.setItem(LS_VOTERS, JSON.stringify(arr));
+}
+
+function hasVoted(name, cls) {
+  return loadVoters().some(
+    v =>
+      v.name.toLowerCase() === name.toLowerCase() &&
+      v.cls.toLowerCase() === cls.toLowerCase()
+  );
+}
+
+/* =========================
+   DOM ELEMENTS
+========================= */
+const loginForm = document.getElementById('loginForm');
+const loginMsg = document.getElementById('loginMsg');
+
+const voteForm = document.getElementById('voteForm');
+
+const loginSection = document.getElementById('loginSection');
+const votingSection = document.getElementById('votingSection');
+const votedNotice = document.getElementById('votedNotice');
+
+const whoAmI = document.getElementById('whoAmI');
+const positionsContainer = document.getElementById('positionsContainer');
+
+const logoutBtn = document.getElementById('logoutBtn');
+const nextVoterBtn = document.getElementById('nextVoterBtn');
+
+const viewResultsBtn = document.getElementById('viewResultsBtn');
+const viewResultsBtn2 = document.getElementById('viewResultsBtn2');
+
+const resultsOverlay = document.getElementById('resultsOverlay');
+const resultsContent = document.getElementById('resultsContent');
+
+const closeResults = document.getElementById('closeResults');
+const resetVotes = document.getElementById('resetVotes');
+
+/* =========================
+   RENDER POSITIONS
+========================= */
+function renderPositions() {
+  positionsContainer.innerHTML = '';
+
+  POSITIONS.forEach(pos => {
+
+    const div = document.createElement('div');
+    div.className = 'position';
+
+    const title = document.createElement('h3');
+    title.textContent = pos.title;
+
+    div.appendChild(title);
+
+    pos.candidates.forEach(c => {
+
+      const lab = document.createElement('label');
+      lab.className = 'candidate';
+
+      const r = document.createElement('input');
+      r.type = 'radio';
+      r.name = pos.id;
+      r.value = c;
+
+      /* PLAY BEEP WHEN SELECTED */
+      r.addEventListener('change', playBeep);
+
+      const s = document.createElement('span');
+      s.textContent = c;
+
+      lab.appendChild(r);
+      lab.appendChild(s);
+
+      div.appendChild(lab);
+    });
+
+    positionsContainer.appendChild(div);
+  });
+}
+
+renderPositions();
+
+/* =========================
+   LOGIN
+========================= */
+loginForm.addEventListener('submit', e => {
+
+  e.preventDefault();
+
+  const name = document
+    .getElementById('studentName')
+    .value
+    .trim();
+
+  const cls = document
+    .getElementById('studentClass')
+    .value
+    .trim();
+
+  if (!name || !cls) {
+    loginMsg.textContent = 'Enter both name and class';
+    return;
+  }
+
+  if (hasVoted(name, cls)) {
+    alert('You have already voted.');
+    loginForm.reset();
+    return;
+  }
+
+  sessionStorage.setItem(
+    'ss_current',
+    JSON.stringify({ name, cls })
+  );
+
+  whoAmI.textContent = `${name} — ${cls}`;
+
+  loginSection.style.display = 'none';
+  votingSection.style.display = 'block';
+});
+
+/* =========================
+   LOGOUT
+========================= */
+logoutBtn.addEventListener('click', () => {
+
+  sessionStorage.removeItem('ss_current');
+
+  voteForm.reset();
+
+  loginSection.style.display = 'block';
+  votingSection.style.display = 'none';
+  votedNotice.style.display = 'none';
+});
+
+/* =========================
+   SUBMIT VOTE
+========================= */
+voteForm.addEventListener('submit', e => {
+
+  e.preventDefault();
+
+  const cur = JSON.parse(
+    sessionStorage.getItem('ss_current') || 'null'
+  );
+
+  if (!cur) {
+    alert('Session expired');
+    return;
+  }
+
+  const { name, cls } = cur;
+
+  const votes = loadVotes();
+
+  for (const p of POSITIONS) {
+
+    const val = voteForm.elements[p.id].value;
+
+    if (!val) {
+      alert('Please vote for each position');
+      return;
+    }
+
+    votes[p.id][val]++;
+  }
+
+  saveVotes(votes);
+
+  saveVoter({
+    name,
+    cls,
+    timestamp: new Date().toISOString()
+  });
+
+  sessionStorage.removeItem('ss_current');
+
+  voteForm.reset();
+
+  votingSection.style.display = 'none';
+  votedNotice.style.display = 'block';
+});
+
+/* =========================
+   NEXT VOTER
+========================= */
+nextVoterBtn.addEventListener('click', () => {
+
+  votedNotice.style.display = 'none';
+
+  loginSection.style.display = 'block';
+
+  loginForm.reset();
+});
+
+/* =========================
+   RESULTS
+========================= */
+function askPasswordAndShow() {
+
+  const pw = prompt('Enter admin password:');
+
+  if (pw === ADMIN_PASSWORD) {
+    showResults();
+  }
+  else if (pw) {
+    alert('Incorrect password');
+  }
+}
+
+viewResultsBtn.onclick = askPasswordAndShow;
+viewResultsBtn2.onclick = askPasswordAndShow;
+
+function showResults() {
+
+  resultsOverlay.style.display = 'block';
+
+  resultsContent.innerHTML = renderResults();
+}
+
+closeResults.onclick = () => {
+  resultsOverlay.style.display = 'none';
+};
+
+function renderResults() {
+
+  const votes = loadVotes();
+
+  let html = '';
+
+  POSITIONS.forEach(pos => {
+
+    html += `<h4>${pos.title}</h4>`;
+
+    for (const [c, n] of Object.entries(votes[pos.id])) {
+
+      html += `
+        <div class='result-row'>
+          <div>${c}</div>
+          <div><strong>${n}</strong></div>
+        </div>
+      `;
+    }
+  });
+
+  html += `
+    <div class='muted'>
+      Total voters: ${loadVoters().length}
+    </div>
+  `;
+
+  return html;
+}
+
+/* =========================
+   RESET VOTES
+========================= */
+resetVotes.onclick = () => {
+
+  const pw = prompt(
+    'Enter admin password to reset:'
+  );
+
+  if (pw === ADMIN_PASSWORD) {
+
+    if (confirm('Erase all votes?')) {
+
+      localStorage.removeItem(LS_VOTES);
+      localStorage.removeItem(LS_VOTERS);
+
+      resultsContent.innerHTML =
+        '<div>Votes reset.</div>';
+    }
+  }
+  else if (pw) {
+    alert('Incorrect password');
+  }
+};
+  </script>
+</body>
+</html>
